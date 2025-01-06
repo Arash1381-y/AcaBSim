@@ -1,0 +1,173 @@
+#include <assert.h>
+#include <stdio.h>
+
+#include "server.h"
+
+#define INITIAL_TABLE_SIZE 8
+
+void
+init_table (hashmap_t *service_time_table)
+{
+
+  *service_time_table
+      = hashmap_new (sizeof (service_t), INITIAL_TABLE_SIZE, 0, 0, service_hash, service_compare, NULL, NULL);
+  hashmap_t table = *service_time_table;
+  hashmap_set (table, &(service_t){ .disability_type = NO_DISABILITY, .dest = DEST_1, .service_time = 4 });
+  hashmap_set (table, &(service_t){ .disability_type = NO_DISABILITY, .dest = DEST_2, .service_time = 6 });
+  hashmap_set (table, &(service_t){ .disability_type = TYPE_1, .dest = DEST_1, .service_time = 8 });
+  hashmap_set (table, &(service_t){ .disability_type = TYPE_1, .dest = DEST_2, .service_time = 10 });
+  hashmap_set (table, &(service_t){ .disability_type = TYPE_2, .dest = DEST_1, .service_time = 10 });
+  hashmap_set (table, &(service_t){ .disability_type = TYPE_2, .dest = DEST_2, .service_time = 14 });
+  hashmap_set (table, &(service_t){ .disability_type = TYPE_3, .dest = DEST_1, .service_time = 18 });
+  hashmap_set (table, &(service_t){ .disability_type = TYPE_3, .dest = DEST_2, .service_time = 16 });
+}
+
+int
+service_compare (const void *a, const void *b, void *udata)
+{
+  const service_t *sa = a;
+  const service_t *sb = b;
+  return sa->disability_type != sb->disability_type || sa->dest != sb->dest;
+}
+
+bool
+service_iter (const void *item, void *udata)
+{
+  const service_t *service = item;
+  printf ("SERVICE FOR DISABILITY TYPE : %d WITH DEST : %d", service->disability_type, service->dest);
+  return true;
+}
+
+uint64_t
+service_hash (const void *item, uint64_t seed0, uint64_t seed1)
+{
+  const service_t *service = item;
+  return hashmap_sip (&service->disability_type, sizeof (service->disability_type), seed0, seed1)
+         ^ hashmap_sip (&service->dest, sizeof (service->dest), seed0, seed1);
+}
+
+standard_server_t *
+standard_server_new (hashmap_t service_time_table, prob_t error_prob)
+{
+  standard_server_t *item = (standard_server_t *)malloc (sizeof (standard_server_t));
+  item->service_time_table = service_time_table;
+  item->error_prob = error_prob;
+
+  item->client_queue = queue_init (128);
+  item->current_client = NULL;
+
+  return item;
+}
+
+void
+assign_client_to_standard_server (standard_server_t *server, client_t *client)
+{
+  queue_push (server->client_queue, client);
+}
+
+void
+assign_client_to_robotic_server (robotic_server_t *server, client_t *client)
+{
+  if (client->disability_type == NO_DISABILITY)
+  {
+    queue_push (server->normal_client_queue, client);
+  }
+  else
+  {
+    queue_push (server->disable_client_queue, client);
+  }
+}
+
+int
+get_robotic_service_time (robotic_server_t *server, client_t *client)
+{
+  assert (client != NULL);
+  assert (server != NULL);
+
+  if (client->disability_type == NO_DISABILITY)
+  {
+    return ((service_t *)hashmap_get (
+                server->service_time_table,
+                &(service_t){ .disability_type = client->disability_type, .dest = client->destination }))
+        ->service_time;
+  }
+  else
+  {
+
+    return ((service_t *)hashmap_get (
+                server->service_time_table,
+                &(service_t){ .disability_type = client->disability_type, .dest = client->destination }))
+               ->service_time
+           * server->boost_rate;
+  }
+}
+int
+get_service_time (base_server_t *server, client_t *client)
+{
+  assert (client);
+  assert (server);
+
+  service_t key = { .disability_type = client->disability_type, .dest = client->destination };
+  service_t *value = ((service_t *)hashmap_get (server->service_time_table, &key));
+  if (value)
+  {
+    return value->service_time;
+  }
+  else
+  {
+    fflush (stdout);
+    printf ("INVALID HASHING\n");
+    exit (EXIT_FAILURE);
+  }
+}
+
+void
+log_server_stat (const standard_server_t *server, int server_id)
+{
+  if (!server)
+  {
+    fprintf (stderr, "Error: Server is NULL.\n");
+    return;
+  }
+
+  base_server_t base = server->base;
+  server_stat_t stat = server->base.stat;
+
+  // Print server stats
+  printf ("==== Server ID: %d ====\n", server_id);
+  printf ("Active Time: %d\n", stat.active_time);
+  printf ("Idle Time: %d\n", stat.idle_time);
+  printf ("Clients Served: %d\n", stat.client_served);
+  printf ("Failure Count: %d\n", stat.failure_count);
+  printf ("Mean Queue Length: %d\n", stat.mean_server_queue_len);
+
+  // Print current client status
+  if (server->base.current_client)
+  {
+    printf ("Current Client: %p\n", (void *)base.current_client);
+    printf ("Time to Serve Current Client: %d\n", base.to_serve);
+  }
+  else
+  {
+    printf ("Current Client: None\n");
+  }
+
+  // Print queue lengths
+  printf ("Waiting Queue Length: %zu\n", queue_size (server->client_queue));
+  printf ("Finished Queue Length: %zu\n", queue_size (base.finished_clients_queue));
+
+  while (!queue_is_empty (base.finished_clients_queue))
+  {
+    const client_t *client = queue_top (base.finished_clients_queue);
+    log_client_t (client);
+    queue_pop (base.finished_clients_queue);
+  }
+  {
+    /* code */
+  }
+
+  // Print error probability
+  printf ("Error Probability: %.2f\n", (double)base.error_prob);
+
+  printf ("========================\n");
+}
