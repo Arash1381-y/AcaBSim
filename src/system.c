@@ -20,9 +20,18 @@ get_client (queue_t *clients, int current_time)
     if (client->service_stat.arrival_time == current_time)
     {
       if (queue_pop (clients))
+      {
+        client->service_stat.failure_count = 0;
+        client->service_stat.finish_time = 0;
+        client->service_stat.wait_time = 0;
+        client->service_stat.total_time = 0;
+
         return client;
+      }
       else
+      {
         exit (EXIT_FAILURE);
+      }
     }
   }
 
@@ -133,40 +142,13 @@ servers_update_serve_time (system_t *system)
 {
   for (size_t i = 0; i < system->standard_servers_size; i++)
   {
-    // serve current task for standard servers
-    standard_server_t *server = system->standard_servers[i];
-    if (server->base.current_client != NULL)
-    {
-      // update server stat
-      assert (server->base.to_serve > 0);
-      server->base.stat.active_time += 1;
-
-      server->base.to_serve--;
-    }
-    else
-    {
-      // update server stat
-      server->base.stat.idle_time += 1;
-    }
+    base_server_t *server = &system->standard_servers[i]->base;
+    serve (server);
   }
-
-  // serve current task for robotic servers
   for (size_t i = 0; i < system->robotic_servers_size; i++)
   {
-    robotic_server_t *server = system->robotic_servers[i];
-    if (server->current_client != NULL)
-    {
-      // update server stat
-      assert (server->to_serve > 0);
-      server->stat.active_time += 1;
-
-      server->to_serve--;
-    }
-    else
-    {
-      // update server stat
-      server->stat.idle_time += 1;
-    }
+    base_server_t *server = &system->robotic_servers[i]->base;
+    serve (server);
   }
 }
 
@@ -180,10 +162,12 @@ standard_server_set_next_client (standard_server_t *server, int current_time)
     // assign new clinet
     client_t *next = (client_t *)queue_top (client_queue);
     if (!queue_pop (client_queue))
+    {
       exit (EXIT_FAILURE);
+    }
 
     assert (next != NULL);
-    server->base.to_serve = get_standard_service_time (server, next);
+    server->base.to_serve = get_service_time (&server->base, next);
     server->base.current_client = next;
 
     // update client stat
@@ -211,14 +195,13 @@ standard_servers_update_client (standard_server_t **servers, size_t servers_len,
       {
 
         // update client stats
-        set_client_finish_stat (server->base.current_client, current_time);
-        set_client_total_service_stat (server->base.current_client,
-                                       current_time - server->base.current_client->service_stat.start_service_time);
+        client_t *current_client = server->base.current_client;
+        set_client_finish_stat (current_client, current_time);
+        set_client_total_service_stat (current_client,
+                                       current_time - server->base.current_client->service_stat.arrival_time);
         // update server stats
         server->base.stat.client_served += 1;
-
         queue_push (server->base.finished_clients_queue, server->base.current_client);
-        log_client_t (server->base.current_client);
 
         server->base.current_client = NULL;
         standard_server_set_next_client (server, current_time);
@@ -232,13 +215,18 @@ standard_servers_update_client (standard_server_t **servers, size_t servers_len,
         client_t *client = server->base.current_client;
         client->service_stat.failure_count += 1;
 
-        server->base.to_serve = get_standard_service_time (server, client);
+        server->base.to_serve = get_service_time (&server->base, client);
       }
     }
     else if (server->base.to_serve == 0)
     {
       standard_server_set_next_client (server, current_time);
     }
+
+    queue_t *queue = server->client_queue;
+    size_t total_queues_size = queue_size (queue);
+    server->base.stat.sum_queue_lens += total_queues_size;
+    server->base.stat.mean_server_queue_len = server->base.stat.sum_queue_lens / (current_time + 1);
   }
 }
 
@@ -250,11 +238,14 @@ robotic_server_set_next_client (robotic_server_t *server, int current_time)
     // assign new clinet
     client_t *next = (client_t *)queue_top (server->disable_client_queue);
     if (!queue_pop (server->disable_client_queue))
+    {
       exit (EXIT_FAILURE);
+    }
 
     assert (next != NULL);
-    server->to_serve = get_robotic_service_time (server, next);
-    server->current_client = next;
+    server->base.to_serve = get_service_time (&server->base, next) * server->boost_rate;
+    assert (server->base.to_serve > 0);
+    server->base.current_client = next;
 
     // update client stat
     set_client_start_service_stat (next, current_time);
@@ -263,12 +254,15 @@ robotic_server_set_next_client (robotic_server_t *server, int current_time)
   else if (queue_size (server->normal_client_queue))
   {
     client_t *next = (client_t *)queue_top (server->normal_client_queue);
-    if (!queue_pop (server->disable_client_queue))
+    if (!queue_pop (server->normal_client_queue))
+    {
       exit (EXIT_FAILURE);
+    }
 
     assert (next != NULL);
-    server->to_serve = get_robotic_service_time (server, next);
-    server->current_client = next;
+    server->base.to_serve = get_service_time (&server->base, next);
+    assert (server->base.to_serve > 0);
+    server->base.current_client = next;
 
     // update client stat
     set_client_start_service_stat (next, current_time);
@@ -276,8 +270,8 @@ robotic_server_set_next_client (robotic_server_t *server, int current_time)
   }
   else
   {
-    server->current_client = NULL;
-    server->to_serve = 0;
+    server->base.current_client = NULL;
+    server->base.to_serve = 0;
   }
 }
 
@@ -287,41 +281,55 @@ robotic_servers_update_client (robotic_server_t **servers, size_t servers_len, i
   for (size_t i = 0; i < servers_len; i++)
   {
     robotic_server_t *server = servers[i];
-    if (server->to_serve == 0 && server->current_client != NULL)
+    if (server->base.to_serve == 0 && server->base.current_client != NULL)
     {
-      // success
-      if (server->error_prob < (double)rand () / RAND_MAX)
+      // no failure
+      if (server->base.error_prob < (double)rand () / RAND_MAX)
       {
 
         // update client stats
-        set_client_finish_stat (server->current_client, current_time);
-        set_client_total_service_stat (server->current_client,
-                                       current_time - server->current_client->service_stat.start_service_time);
+        set_client_finish_stat (server->base.current_client, current_time);
+        set_client_total_service_stat (server->base.current_client,
+                                       current_time - server->base.current_client->service_stat.arrival_time);
 
         // update server stats
-        server->stat.client_served += 1;
-        queue_push (server->finished_clients_queue, server->current_client);
+        server->base.stat.client_served += 1;
+        queue_push (server->base.finished_clients_queue, server->base.current_client);
 
-        server->current_client = NULL;
+        server->base.current_client = NULL;
         robotic_server_set_next_client (server, current_time);
       }
       // failure
       else
       {
         // update server stats
-        server->stat.failure_count += 1;
+        server->base.stat.failure_count += 1;
 
         // update client stat
-        client_t *client = server->current_client;
+        client_t *client = server->base.current_client;
         client->service_stat.failure_count += 1;
 
-        server->to_serve = get_robotic_service_time (server, client);
+        server->base.to_serve = get_service_time (&server->base, client);
+        if (client->disability_type != NO_DISABILITY)
+        {
+          server->base.to_serve *= server->boost_rate;
+        }
       }
     }
-    else if (server->to_serve == 0)
+    else if (server->base.to_serve == 0)
     {
+      server->base.current_client = NULL;
       robotic_server_set_next_client (server, current_time);
+      assert ((server->base.to_serve > 0 && server->base.current_client != NULL)
+              || (server->base.current_client == NULL && server->base.to_serve == 0));
     }
+
+    // update server stat
+    queue_t *disable_queue = server->disable_client_queue;
+    queue_t *normal_queue = server->normal_client_queue;
+    size_t total_queues_size = queue_size (normal_queue) + queue_size (disable_queue);
+    server->base.stat.sum_queue_lens += total_queues_size;
+    server->base.stat.mean_server_queue_len = server->base.stat.sum_queue_lens / (current_time + 1);
   }
 }
 
@@ -333,6 +341,53 @@ servers_run (system_t *system, int current_time)
   robotic_servers_update_client (system->robotic_servers, system->robotic_servers_size, current_time);
 }
 
+static void
+compute_stats (system_t *system, sim_stat_t *stat)
+{
+  int total_queue_len = 0;
+  int total_wait_time = 0;
+  int total_serve_time = 0;
+  int total_served_clients = 0;
+  for (size_t i = 0; i < system->standard_servers_size; i++)
+  {
+    base_server_t server = system->standard_servers[i]->base;
+    total_queue_len += server.stat.mean_server_queue_len;
+
+    queue_t *finished = server.finished_clients_queue;
+    queue_iterator_t *iterator = queue_iterator_create (finished);
+    while (queue_iterator_has_next (iterator))
+    {
+      const client_t *client = (client_t *)queue_iterator_next (iterator);
+      total_wait_time += client->service_stat.wait_time;
+      total_serve_time += client->service_stat.total_time;
+      total_served_clients++;
+
+      log_client_t (client);
+    }
+  }
+
+  for (size_t i = 0; i < system->robotic_servers_size; i++)
+  {
+    base_server_t server = system->robotic_servers[i]->base;
+    total_queue_len += server.stat.mean_server_queue_len;
+
+    queue_t *finished = server.finished_clients_queue;
+    queue_iterator_t *iterator = queue_iterator_create (finished);
+    while (queue_iterator_has_next (iterator))
+    {
+      client_t *client = (client_t *)queue_iterator_next (iterator);
+      total_wait_time += client->service_stat.wait_time;
+      total_serve_time += client->service_stat.total_time;
+      total_served_clients++;
+    }
+    queue_iterator_destroy (iterator);
+  }
+
+  stat->mean_queue_size = total_queue_len / (system->standard_servers_size + system->robotic_servers_size);
+  stat->mean_serve_time = total_serve_time / total_served_clients;
+  stat->mean_wait_time = total_wait_time / total_served_clients;
+}
+
 static int
 system_tick (system_t *system, int current_time, sim_stat_t *stat)
 {
@@ -341,7 +396,6 @@ system_tick (system_t *system, int current_time, sim_stat_t *stat)
   if (new_client)
   {
     assign_client (system, new_client);
-    printf ("DEBUG: ASSIGN CLIENT %d AT %d\n", new_client->id, current_time);
   }
 
   servers_run (system, current_time);
@@ -356,12 +410,17 @@ simulate (system_t *system, int simulation_time, sim_stat_t *stat)
       || (system->robotic_servers_size + system->standard_servers_size == 0))
   {
     fprintf (stderr, "Error: system is not initialized correctly");
+    fflush (stderr);
+    fflush (stdout);
     return EXIT_FAILURE;
   }
 
   if (stat == NULL)
   {
+    printf ("fuck me l");
     fprintf (stderr, "Error: stat is undefined");
+    fflush (stderr);
+    fflush (stdout);
     return EXIT_FAILURE;
   }
 
@@ -369,6 +428,7 @@ simulate (system_t *system, int simulation_time, sim_stat_t *stat)
   {
     system_tick (system, t, stat);
   }
+  compute_stats (system, stat);
 
   return 0;
 }

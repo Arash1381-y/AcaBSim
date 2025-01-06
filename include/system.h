@@ -16,3 +16,4 @@ typedef struct
 
 
 int simulate (system_t *system, const int simulation_time, sim_stat_t *stat);
+

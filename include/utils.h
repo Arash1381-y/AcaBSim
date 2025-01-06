@@ -14,7 +14,9 @@ typedef struct
 
 typedef struct
 {
-
+  int mean_queue_size;
+  int mean_wait_time;
+  int mean_serve_time;
 } sim_stat_t;
 
 int exponential_sample ();

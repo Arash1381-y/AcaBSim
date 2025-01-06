@@ -46,20 +46,12 @@ typedef struct
 
 typedef struct
 {
+  base_server_t base; // base server
 
-  hashmap_t service_time_table; // service time table
+  double boost_rate; // boost rate of the robotic server
 
-  prob_t error_prob;        // server error prob
-  client_t *current_client; // current client
-
-  int to_serve;     // time to serve current client
-  float boost_rate; // boost rate of the robotic server
-
-  queue_t *disable_client_queue;   // disable clients waiting for the service
-  queue_t *normal_client_queue;    // normal clients waiting for the service
-  queue_t *finished_clients_queue; // finished tasks
-
-  server_stat_t stat; // server_stat
+  queue_t *disable_client_queue; // disable clients waiting for the service
+  queue_t *normal_client_queue;  // normal clients waiting for the service
 } robotic_server_t;
 
 int service_compare (const void *a, const void *b, void *udata);
@@ -72,9 +64,7 @@ void init_table (hashmap_t *service_time_table);
 
 standard_server_t *standard_server_new (hashmap_t service_time_table, prob_t error_prob);
 
-int get_robotic_service_time (robotic_server_t *server, client_t *client);
-
-get_service_time (base_server_t *server, client_t *client);
+int get_service_time (const base_server_t *server, client_t *client);
 
 void assign_client_to_standard_server (standard_server_t *server, client_t *client);
 
@@ -88,3 +78,5 @@ void assign_client_to_robotic_server (robotic_server_t *server, client_t *client
 
 // system_t system_init (standard_server_t **standard_servers, robotic_server_t **robotic_servers);
 void log_server_stat (const standard_server_t *server, int server_id);
+
+void serve (base_server_t *server);

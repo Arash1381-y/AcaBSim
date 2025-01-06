@@ -37,7 +37,21 @@ clients_init (queue_t **clients, prob_t disability_prob, prob_t destination_prob
     if ((double)rand () / RAND_MAX < disability_prob)
     {
       // determine disability type
-      client->disability_type = (DISABILITY_TYPE)unifrom_sample (1, sizeof (DISABILITY_TYPE));
+      switch (unifrom_sample (0, sizeof (DISABILITY_TYPE) - 2))
+      {
+      case 0:
+        client->disability_type = TYPE_1;
+        break;
+      case 1:
+        client->disability_type = TYPE_2;
+        break;
+      case 2:
+        client->disability_type = TYPE_3;
+        break;
+
+      default:
+        break;
+      }
     }
     else
     {
@@ -47,11 +61,11 @@ clients_init (queue_t **clients, prob_t disability_prob, prob_t destination_prob
     // check if destination is p1
     if ((double)rand () / RAND_MAX < destination_prob)
     {
-      client->destination = DEST_1;
+      client->destination = DEST_2;
     }
     else
     {
-      client->destination = DEST_2;
+      client->destination = DEST_1;
     }
     queue_push (*clients, (void *)client);
   }

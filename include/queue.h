@@ -17,6 +17,12 @@
 struct queue;
 typedef struct queue queue_t;
 
+typedef struct queue_iterator
+{
+  queue_t *queue;
+  unsigned int index;
+} queue_iterator_t;
+
 /**
  * Returns an new empty queue with an initial capacity
  * Return NULL on failure
@@ -61,5 +67,10 @@ void queue_free (queue_t *queue);
  * Returns true or false wether the operation was successful
  */
 int queue_resize (queue_t *queue, unsigned capacity);
+
+queue_iterator_t *queue_iterator_create (queue_t *queue);
+int queue_iterator_has_next (queue_iterator_t *iterator);
+const void *queue_iterator_next (queue_iterator_t *iterator);
+void queue_iterator_destroy (queue_iterator_t *iterator);
 
 #endif //_QUEUE_H_

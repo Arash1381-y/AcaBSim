@@ -50,12 +50,11 @@ standard_server_t *
 standard_server_new (hashmap_t service_time_table, prob_t error_prob)
 {
   standard_server_t *item = (standard_server_t *)malloc (sizeof (standard_server_t));
-  item->service_time_table = service_time_table;
-  item->error_prob = error_prob;
+  item->base.service_time_table = service_time_table;
+  item->base.error_prob = error_prob;
+  item->base.current_client = NULL;
 
   item->client_queue = queue_init (128);
-  item->current_client = NULL;
-
   return item;
 }
 
@@ -79,30 +78,7 @@ assign_client_to_robotic_server (robotic_server_t *server, client_t *client)
 }
 
 int
-get_robotic_service_time (robotic_server_t *server, client_t *client)
-{
-  assert (client != NULL);
-  assert (server != NULL);
-
-  if (client->disability_type == NO_DISABILITY)
-  {
-    return ((service_t *)hashmap_get (
-                server->service_time_table,
-                &(service_t){ .disability_type = client->disability_type, .dest = client->destination }))
-        ->service_time;
-  }
-  else
-  {
-
-    return ((service_t *)hashmap_get (
-                server->service_time_table,
-                &(service_t){ .disability_type = client->disability_type, .dest = client->destination }))
-               ->service_time
-           * server->boost_rate;
-  }
-}
-int
-get_service_time (base_server_t *server, client_t *client)
+get_service_time (const base_server_t *server, client_t *client)
 {
   assert (client);
   assert (server);
@@ -111,12 +87,13 @@ get_service_time (base_server_t *server, client_t *client)
   service_t *value = ((service_t *)hashmap_get (server->service_time_table, &key));
   if (value)
   {
+    assert (value->service_time);
     return value->service_time;
   }
   else
   {
-    fflush (stdout);
     printf ("INVALID HASHING\n");
+    fflush (stdout);
     exit (EXIT_FAILURE);
   }
 }
@@ -170,4 +147,23 @@ log_server_stat (const standard_server_t *server, int server_id)
   printf ("Error Probability: %.2f\n", (double)base.error_prob);
 
   printf ("========================\n");
+}
+
+void
+serve (base_server_t *server)
+{
+  // serve current task for standard servers
+  if (server->current_client != NULL)
+  {
+    // update server stat
+    assert (server->to_serve > 0);
+    server->stat.active_time += 1;
+
+    server->to_serve--;
+  }
+  else
+  {
+    // update server stat
+    server->stat.idle_time += 1;
+  }
 }
