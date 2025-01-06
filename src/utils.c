@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <utils.h>
 
-#define RATE 0.5
+#define RATE 0.25
 
 int
 exponential_sample ()

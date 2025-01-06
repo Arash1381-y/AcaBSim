@@ -1,4 +1,3 @@
-// -X 0.4 -T 100 -P 0.2 -A 0.4 -E 0.7
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -10,6 +9,9 @@
 #include "server.h"
 #include "system.h"
 #include "utils.h"
+
+#define TEST_COUNT 10
+// #define SETUP0
 
 void
 initialize_parameters (sim_param_t *params, int argc, char *argv[])
@@ -61,6 +63,9 @@ setup0 (hashmap_t table, queue_t *clients, sim_param_t params)
 
   sim_stat_t stats;
   simulate (&system, params.simulation_time, &stats);
+
+  log_server_stat (&server_1.base, 1);
+  log_server_stat (&server_2.base, 2);
   return stats;
 }
 
@@ -97,42 +102,88 @@ setup1 (hashmap_t table, queue_t *clients, sim_param_t params)
 
   sim_stat_t stats;
   simulate (&system, params.simulation_time, &stats);
+  log_server_stat (&server_1.base, 1);
+  log_server_stat (&server_2.base, 2);
   return stats;
 }
 
 int
 main (int argc, char *argv[])
 {
-  // srand (time (NULL)); // randomize seed
+  srand (time (NULL)); // randomize seed
+  sim_param_t params;
+  initialize_parameters (&params, argc, argv);
 
-  sim_param_t params = { .simulation_time = 10000,
-                         .disability_prob = 0.8,
-                         .robot_boost_coff = 1,
-                         .error_per_act_prob = 0,
-                         .p1_dest_prob = 0.5 };
+  sim_stat_t total_stats = { 0 };
+  int test_count = 10;
 
-  hashmap_t table = NULL;
-  init_table (&table);
-
-  queue_t *clients = NULL;
-  clients_init (&clients, params.disability_prob, params.p1_dest_prob, params.simulation_time);
-  if (table == NULL || clients == NULL)
+  for (int i = 0; i < test_count; i++)
   {
-    fflush (stdout);
-    return EXIT_FAILURE;
+    hashmap_t table = NULL;
+    init_table (&table);
+
+    queue_t *clients = NULL;
+    clients_init (&clients, params.disability_prob, params.p1_dest_prob, params.simulation_time);
+    if (table == NULL || clients == NULL)
+    {
+      fflush (stdout);
+      return EXIT_FAILURE;
+    }
+
+#ifdef SETUP0
+    sim_stat_t stats = setup0 (table, clients, params);
+#else
+    sim_stat_t stats = setup1 (table, clients, params);
+#endif
+
+    total_stats.mean_queue_size += stats.mean_queue_size;
+    total_stats.mean_wait_time += stats.mean_wait_time;
+    total_stats.mean_serve_time += stats.mean_serve_time;
+
+    total_stats.nd_mean_wait_time += stats.nd_mean_wait_time;
+    total_stats.nd_mean_serve_time += stats.nd_mean_serve_time;
+
+    total_stats.t1_mean_wait_time += stats.t1_mean_wait_time;
+    total_stats.t1_mean_serve_time += stats.t1_mean_serve_time;
+
+    total_stats.t2_mean_wait_time += stats.t2_mean_wait_time;
+    total_stats.t2_mean_serve_time += stats.t2_mean_serve_time;
+
+    total_stats.t3_mean_wait_time += stats.t3_mean_wait_time;
+    total_stats.t3_mean_serve_time += stats.t3_mean_serve_time;
+
+    queue_free (clients);
+    hashmap_free (table);
   }
 
-  // sim_stat_t stats = setup0 (table, clients, params);
-  sim_stat_t stats = setup1 (table, clients, params);
+  total_stats.mean_queue_size /= test_count;
+  total_stats.mean_wait_time /= test_count;
+  total_stats.mean_serve_time /= test_count;
 
-  printf ("================== STATS =================\n");
-  printf ("AVG QUEUE LEN : %d\n", stats.mean_queue_size);
-  printf ("AVG WAIT TIME : %d\n", stats.mean_wait_time);
-  printf ("AVG SERVE TIME : %d\n", stats.mean_serve_time);
-  printf ("=========================================\n");
+  total_stats.nd_mean_wait_time /= test_count;
+  total_stats.nd_mean_serve_time /= test_count;
 
-  queue_free (clients);
-  hashmap_free (table);
+  total_stats.t1_mean_wait_time /= test_count;
+  total_stats.t1_mean_serve_time /= test_count;
 
-  return 0;
+  total_stats.t2_mean_wait_time /= test_count;
+  total_stats.t2_mean_serve_time /= test_count;
+
+  total_stats.t3_mean_wait_time /= test_count;
+  total_stats.t3_mean_serve_time /= test_count;
+
+  // Print the average results
+  printf ("Average Results:\n");
+  printf ("Mean queue size: %d\n", total_stats.mean_queue_size);
+  printf ("Mean wait time: %d\n", total_stats.mean_wait_time);
+  printf ("Mean service time: %d\n", total_stats.mean_serve_time);
+
+  printf ("ND mean wait time: %d\n", total_stats.nd_mean_wait_time);
+  printf ("ND mean service time: %d\n", total_stats.nd_mean_serve_time);
+
+  printf ("T1 mean wait time: %d\n", total_stats.t1_mean_wait_time);
+  printf ("T1 mean service time: %d\n", total_stats.t1_mean_serve_time);
+
+  printf ("T2 mean wait time: %d\n", total_stats.t2_mean_serve_time);
+  printf ("T2 mean service time: %d\n", total_stats.t2_mean_serve_time);
 }

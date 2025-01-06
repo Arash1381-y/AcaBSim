@@ -345,6 +345,23 @@ static void
 compute_stats (system_t *system, sim_stat_t *stat)
 {
   int total_queue_len = 0;
+
+  int nd_total = 0;
+  int nd_wait_time = 0;
+  int nd_service_time = 0;
+
+  int t1_total = 0;
+  int t1_wait_time = 0;
+  int t1_service_time = 0;
+
+  int t2_total = 0;
+  int t2_wait_time = 0;
+  int t2_service_time = 0;
+
+  int t3_total = 0;
+  int t3_wait_time = 0;
+  int t3_service_time = 0;
+
   int total_wait_time = 0;
   int total_serve_time = 0;
   int total_served_clients = 0;
@@ -358,11 +375,35 @@ compute_stats (system_t *system, sim_stat_t *stat)
     while (queue_iterator_has_next (iterator))
     {
       const client_t *client = (client_t *)queue_iterator_next (iterator);
+      switch (client->disability_type)
+      {
+      case NO_DISABILITY:
+        nd_total += 1;
+        nd_wait_time += client->service_stat.wait_time;
+        nd_service_time += client->service_stat.total_time;
+        break;
+      case TYPE_1:
+        t1_total++;
+        t1_wait_time += client->service_stat.wait_time;
+        t1_service_time += client->service_stat.total_time;
+        break;
+      case TYPE_2:
+        t2_total++;
+        t2_wait_time += client->service_stat.wait_time;
+        t2_service_time += client->service_stat.total_time;
+        break;
+      case TYPE_3:
+        t3_total++;
+        t3_wait_time += client->service_stat.wait_time;
+        t3_service_time += client->service_stat.total_time;
+        break;
+      default:
+        break;
+      }
+
       total_wait_time += client->service_stat.wait_time;
       total_serve_time += client->service_stat.total_time;
       total_served_clients++;
-
-      log_client_t (client);
     }
   }
 
@@ -376,6 +417,31 @@ compute_stats (system_t *system, sim_stat_t *stat)
     while (queue_iterator_has_next (iterator))
     {
       client_t *client = (client_t *)queue_iterator_next (iterator);
+      switch (client->disability_type)
+      {
+      case NO_DISABILITY:
+        nd_total += 1;
+        nd_wait_time += client->service_stat.wait_time;
+        nd_service_time += client->service_stat.total_time;
+        break;
+      case TYPE_1:
+        t1_total++;
+        t1_wait_time += client->service_stat.wait_time;
+        t1_service_time += client->service_stat.total_time;
+        break;
+      case TYPE_2:
+        t2_total++;
+        t2_wait_time += client->service_stat.wait_time;
+        t2_service_time += client->service_stat.total_time;
+        break;
+      case TYPE_3:
+        t3_total++;
+        t3_wait_time += client->service_stat.wait_time;
+        t3_service_time += client->service_stat.total_time;
+        break;
+      default:
+        break;
+      }
       total_wait_time += client->service_stat.wait_time;
       total_serve_time += client->service_stat.total_time;
       total_served_clients++;
@@ -383,9 +449,23 @@ compute_stats (system_t *system, sim_stat_t *stat)
     queue_iterator_destroy (iterator);
   }
 
-  stat->mean_queue_size = total_queue_len / (system->standard_servers_size + system->robotic_servers_size);
-  stat->mean_serve_time = total_serve_time / total_served_clients;
-  stat->mean_wait_time = total_wait_time / total_served_clients;
+  stat->nd_mean_wait_time = nd_total > 0 ? nd_wait_time / nd_total : 0;
+  stat->nd_mean_serve_time = nd_total > 0 ? nd_service_time / nd_total : 0;
+
+  stat->t1_mean_wait_time = t1_total > 0 ? t1_wait_time / t1_total : 0;
+  stat->t1_mean_serve_time = t1_total > 0 ? t1_service_time / t1_total : 0;
+
+  stat->t2_mean_wait_time = t2_total > 0 ? t2_wait_time / t2_total : 0;
+  stat->t2_mean_serve_time = t2_total > 0 ? t2_service_time / t2_total : 0;
+
+  stat->t3_mean_wait_time = t3_total > 0 ? t3_wait_time / t3_total : 0;
+  stat->t3_mean_serve_time = t3_total > 0 ? t3_service_time / t3_total : 0;
+
+  stat->mean_queue_size = (system->standard_servers_size + system->robotic_servers_size) > 0
+                              ? total_queue_len / (system->standard_servers_size + system->robotic_servers_size)
+                              : 0;
+  stat->mean_serve_time = total_served_clients > 0 ? total_serve_time / total_served_clients : 0;
+  stat->mean_wait_time = total_served_clients > 0 ? total_wait_time / total_served_clients : 0;
 }
 
 static int
@@ -410,18 +490,13 @@ simulate (system_t *system, int simulation_time, sim_stat_t *stat)
       || (system->robotic_servers_size + system->standard_servers_size == 0))
   {
     fprintf (stderr, "Error: system is not initialized correctly");
-    fflush (stderr);
-    fflush (stdout);
-    return EXIT_FAILURE;
+    exit (EXIT_FAILURE);
   }
 
   if (stat == NULL)
   {
-    printf ("fuck me l");
     fprintf (stderr, "Error: stat is undefined");
-    fflush (stderr);
-    fflush (stdout);
-    return EXIT_FAILURE;
+    exit (EXIT_FAILURE);
   }
 
   for (int t = 0; t < simulation_time; t++)

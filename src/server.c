@@ -99,7 +99,7 @@ get_service_time (const base_server_t *server, client_t *client)
 }
 
 void
-log_server_stat (const standard_server_t *server, int server_id)
+log_server_stat (const base_server_t *server, int server_id)
 {
   if (!server)
   {
@@ -107,8 +107,8 @@ log_server_stat (const standard_server_t *server, int server_id)
     return;
   }
 
-  base_server_t base = server->base;
-  server_stat_t stat = server->base.stat;
+  base_server_t base = *server;
+  server_stat_t stat = base.stat;
 
   // Print server stats
   printf ("==== Server ID: %d ====\n", server_id);
@@ -118,33 +118,18 @@ log_server_stat (const standard_server_t *server, int server_id)
   printf ("Failure Count: %d\n", stat.failure_count);
   printf ("Mean Queue Length: %d\n", stat.mean_server_queue_len);
 
-  // Print current client status
-  if (server->base.current_client)
-  {
-    printf ("Current Client: %p\n", (void *)base.current_client);
-    printf ("Time to Serve Current Client: %d\n", base.to_serve);
-  }
-  else
-  {
-    printf ("Current Client: None\n");
-  }
-
   // Print queue lengths
-  printf ("Waiting Queue Length: %zu\n", queue_size (server->client_queue));
   printf ("Finished Queue Length: %zu\n", queue_size (base.finished_clients_queue));
 
-  while (!queue_is_empty (base.finished_clients_queue))
-  {
-    const client_t *client = queue_top (base.finished_clients_queue);
-    log_client_t (client);
-    queue_pop (base.finished_clients_queue);
-  }
-  {
-    /* code */
-  }
+  // while (!queue_is_empty (base.finished_clients_queue))
+  // {
+  //   const client_t *client = queue_top (base.finished_clients_queue);
+  //   log_client_t (client);
+  //   queue_pop (base.finished_clients_queue);
+  // }
 
   // Print error probability
-  printf ("Error Probability: %.2f\n", (double)base.error_prob);
+  printf ("Error Probability: %.2f\n", (double)base.stat.failure_count / (base.stat.client_served + base.stat.failure_count));
 
   printf ("========================\n");
 }

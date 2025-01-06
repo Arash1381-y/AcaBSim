@@ -77,6 +77,6 @@ void assign_client_to_robotic_server (robotic_server_t *server, client_t *client
 // void update_robotic_server_idle_stat (standard_server_t *server);
 
 // system_t system_init (standard_server_t **standard_servers, robotic_server_t **robotic_servers);
-void log_server_stat (const standard_server_t *server, int server_id);
+void log_server_stat (const base_server_t *server, int server_id);
 
 void serve (base_server_t *server);
