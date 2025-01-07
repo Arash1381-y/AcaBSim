@@ -154,16 +154,21 @@ get_service_time (const base_server_t *server, client_t *client)
   assert (server);
   assert (server->service_time_table);
 
+  base_server_t *server_base = (base_server_t *)server;
   service_t key = { .disability_type = client->disability_type, .dest = client->destination };
   service_t *value = ((service_t *)hashmap_get (server->service_time_table, &key));
-  if (value)
+
+  if (server_base->type == STANDARD_SERVER)
   {
     return value->service_time;
   }
+  else if (server_base->type == ROBOTIC_SERVER)
+  {
+    return value->service_time / ((robotic_server_t *)server)->boost_rate;
+  }
   else
   {
-    printf ("INVALID HASHING\n");
-    fflush (stdout);
+    // TODO: correct error handling
     exit (EXIT_FAILURE);
   }
 }
@@ -278,7 +283,7 @@ robotic_server_set_next_client (robotic_server_t *server, int current_time)
     }
 
     assert (next != NULL);
-    server->base.to_serve = get_service_time (&server->base, next) * server->boost_rate;
+    server->base.to_serve = get_service_time (&server->base, next);
     assert (server->base.to_serve > 0);
     server->base.current_client = next;
 

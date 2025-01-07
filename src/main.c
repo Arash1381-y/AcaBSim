@@ -159,8 +159,8 @@ print_average_results (sim_stat_t *total_stats)
   printf ("T1 mean service time: %d\n", total_stats->t1_mean_serve_time);
   printf ("T2 mean wait time: %d\n", total_stats->t2_mean_wait_time);
   printf ("T2 mean service time: %d\n", total_stats->t2_mean_serve_time);
-  printf ("T3 mean wait time: %d\n", total_stats->t2_mean_wait_time);
-  printf ("T3 mean service time: %d\n", total_stats->t2_mean_serve_time);
+  printf ("T3 mean wait time: %d\n", total_stats->t3_mean_wait_time);
+  printf ("T3 mean service time: %d\n", total_stats->t3_mean_serve_time);
 }
 
 int

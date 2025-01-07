@@ -39,40 +39,57 @@ static int
 assign_client (system_t *system, client_t *client)
 {
   standard_server_t *low_load_standard_server = NULL;
-  int min_load = INT32_MAX;
+  int min_load_standard = INT32_MAX;
   for (size_t i = 0; i < system->standard_servers_size; i++)
   {
     standard_server_t *cserver = system->standard_servers[i];
     int load = get_server_load ((server_t *)cserver, client->disability_type);
-    if (min_load > load)
+    if (min_load_standard > load)
     {
       low_load_standard_server = cserver;
-      min_load = load;
+      min_load_standard = load;
     }
   }
 
   robotic_server_t *low_load_robotic_server = NULL;
+  int min_load_robotic = INT32_MAX;
 
   for (size_t i = 0; i < system->robotic_servers_size; i++)
   {
     robotic_server_t *cserver = system->robotic_servers[i];
     int load = get_server_load ((server_t *)cserver, client->disability_type);
-    if (min_load > load)
+    if (min_load_robotic > load)
     {
       low_load_robotic_server = cserver;
-      min_load = load;
+      min_load_robotic = load;
     }
   }
 
   assert (low_load_robotic_server != NULL || low_load_standard_server != NULL);
 
-  if (low_load_robotic_server == NULL)
+  if (client->disability_type != NO_DISABILITY && low_load_robotic_server != NULL)
+  {
+    assign_client_to_server ((server_t)low_load_robotic_server, client);
+  }
+  else if (low_load_standard_server == NULL)
+  {
+    assign_client_to_server ((server_t)low_load_robotic_server, client);
+  }
+  else if (low_load_robotic_server == NULL)
   {
     assign_client_to_server ((server_t)low_load_standard_server, client);
   }
   else
   {
-    assign_client_to_server ((server_t)low_load_robotic_server, client);
+    if (min_load_robotic < min_load_standard)
+    {
+      assign_client_to_server ((server_t)low_load_robotic_server, client);
+    }
+    else
+    {
+
+      assign_client_to_server ((server_t)low_load_standard_server, client);
+    }
   }
 
   return 0;
