@@ -118,3 +118,10 @@ log_client_t (const client_t *client)
   printf ("  Disability Type: %d\n", client->disability_type); // Enum as int
   printf ("  Destination: %d\n", client->destination);         // Enum as int
 }
+
+void
+client_finalize (client_t *client, int time)
+{
+  set_client_finish_stat (client, time);
+  set_client_total_service_stat (client, time - client->service_stat.arrival_time);
+}

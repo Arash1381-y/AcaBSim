@@ -39,6 +39,7 @@ typedef struct
 client_t *client_new ();
 
 void clients_init (queue_t **clients, prob_t disability_prob, prob_t destination_prob, int finish_time);
+void client_finalize(client_t* client, int time);
 void set_client_arrival_stat (client_t *client, int time);
 void set_client_wait_stat (client_t *client, int time);
 void set_client_start_service_stat (client_t *client, int time);

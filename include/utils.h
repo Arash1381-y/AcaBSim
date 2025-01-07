@@ -14,6 +14,7 @@ typedef struct
 
 typedef struct
 {
+  int total_clients;
   int mean_queue_size;
   int mean_wait_time;
   int mean_serve_time;

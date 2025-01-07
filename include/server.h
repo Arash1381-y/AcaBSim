@@ -4,7 +4,6 @@
 #include <stdint.h>
 
 #include "client.h"
-#include "hashmap.h"
 #include "queue.h"
 #include "utils.h"
 
@@ -14,6 +13,18 @@ typedef struct
   DESTINATION dest;                // which destination serve the clinet
   int service_time;                // amount of time it takes to serve the client
 } service_t;
+
+// compare
+int service_compare (const void *a, const void *b, void *udata);
+
+// iter
+bool service_iter (const void *item, void *udata);
+
+// hash
+uint64_t service_hash (const void *item, uint64_t seed0, uint64_t seed1);
+
+// init base server time table services
+void init_table (hashmap_t *service_time_table);
 
 typedef struct
 {
@@ -25,8 +36,17 @@ typedef struct
   int mean_server_queue_len;
 } server_stat_t;
 
+typedef enum
+{
+  INVALID = 0,
+  STANDARD_SERVER = 1,
+  ROBOTIC_SERVER = 2
+} SERVER_TYPE;
+
 typedef struct
 {
+  SERVER_TYPE type;
+  int id;
   hashmap_t service_time_table; // service time table
 
   client_t *current_client; // current serving client
@@ -54,29 +74,33 @@ typedef struct
   queue_t *normal_client_queue;  // normal clients waiting for the service
 } robotic_server_t;
 
-int service_compare (const void *a, const void *b, void *udata);
+typedef void *server_t;
 
-bool service_iter (const void *item, void *udata);
+standard_server_t *standard_server_new (int server_id, hashmap_t service_time_table, prob_t error_prob);
 
-uint64_t service_hash (const void *item, uint64_t seed0, uint64_t seed1);
-
-void init_table (hashmap_t *service_time_table);
-
-standard_server_t *standard_server_new (hashmap_t service_time_table, prob_t error_prob);
+robotic_server_t *robotic_server_new (int server_id, hashmap_t service_time_table, double boost_rate,
+                                      prob_t error_prob);
 
 int get_service_time (const base_server_t *server, client_t *client);
 
-void assign_client_to_standard_server (standard_server_t *server, client_t *client);
+int get_server_load (const server_t *server, DISABILITY_TYPE client_disability_type);
 
-void assign_client_to_robotic_server (robotic_server_t *server, client_t *client);
+int assign_client_to_server (server_t *server, client_t *client);
 
-// void update_standard_server_active_stat (standard_server_t *server);
-// void update_robotic_server_active_stat (standard_server_t *server);
+void server_set_next_client (server_t *server, int current_time);
 
-// void update_standard_server_idle_stat (standard_server_t *server);
-// void update_robotic_server_idle_stat (standard_server_t *server);
+void server_update_stat (server_t *server, int current_time);
 
-// system_t system_init (standard_server_t **standard_servers, robotic_server_t **robotic_servers);
-void log_server_stat (const base_server_t *server, int server_id);
+bool server_is_active (server_t *server);
+
+bool server_is_service_finished (server_t *server);
+
+bool server_is_service_successful (server_t *server);
+
+void server_retry (server_t *server);
+
+client_t *server_finalize_current_client (server_t *server);
+
+void log_server_stat (const base_server_t *server);
 
 void serve (base_server_t *server);

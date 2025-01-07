@@ -1,5 +1,6 @@
 #pragma once
 
+#include "erf_io.h"
 #include "server.h"
 #include <utils.h>
 
@@ -14,6 +15,4 @@ typedef struct
   size_t robotic_servers_size;
 } system_t;
 
-
 int simulate (system_t *system, const int simulation_time, sim_stat_t *stat);
-
