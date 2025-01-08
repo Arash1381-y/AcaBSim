@@ -1,0 +1,4 @@
+Checks:          'clang-analyzer-*,-clang-analyzer-core.uninitialized.Assign'
+CheckOptions:
+  - key:          'modernize-use-auto.MinLength'
+    value:        '5'
