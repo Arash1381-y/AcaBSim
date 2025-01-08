@@ -39,10 +39,10 @@ typedef struct
 client_t *client_new ();
 
 void clients_init (queue_t **clients, prob_t disability_prob, prob_t destination_prob, int finish_time);
-void client_finalize(client_t* client, int time);
-void set_client_arrival_stat (client_t *client, int time);
-void set_client_wait_stat (client_t *client, int time);
-void set_client_start_service_stat (client_t *client, int time);
-void set_client_finish_stat (client_t *client, int time);
-void set_client_total_service_stat(client_t* client, int time);
-void log_client_t (const client_t *client);
+void client_finalize (client_t *client, int time);
+void client_set_arrival_time (client_t *client, int time);
+void client_set_wait_time (client_t *client, int time);
+void client_set_start_service_time (client_t *client, int time);
+void client_set_finish_time (client_t *client, int time);
+void client_set_total_service_time (client_t *client, int time);
+void client_log (const client_t *client);

@@ -81,11 +81,9 @@ standard_server_t *standard_server_new (int server_id, hashmap_t service_time_ta
 robotic_server_t *robotic_server_new (int server_id, hashmap_t service_time_table, double boost_rate,
                                       prob_t error_prob);
 
-int get_service_time (const base_server_t *server, client_t *client);
+int server_get_load (const server_t *server, DISABILITY_TYPE client_disability_type);
 
-int get_server_load (const server_t *server, DISABILITY_TYPE client_disability_type);
-
-int assign_client_to_server (server_t *server, client_t *client);
+int server_assign_client (server_t *server, client_t *client);
 
 void server_set_next_client (server_t *server, int current_time);
 
@@ -103,4 +101,6 @@ client_t *server_finalize_current_client (server_t *server);
 
 void log_server_stat (const base_server_t *server);
 
-void serve (base_server_t *server);
+void server_tick (base_server_t *server);
+
+void server_free (server_t* server);

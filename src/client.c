@@ -72,30 +72,30 @@ clients_init (queue_t **clients, prob_t disability_prob, prob_t destination_prob
 }
 
 void
-set_client_arrival_stat (client_t *client, int time)
+client_set_arrival (client_t *client, int time)
 {
   client->service_stat.arrival_time = time;
 }
 void
-set_client_wait_stat (client_t *client, int time)
+client_set_wait_time (client_t *client, int time)
 {
   client->service_stat.wait_time = time;
 }
 
 void
-set_client_start_service_stat (client_t *client, int time)
+client_set_start_service_time (client_t *client, int time)
 {
   client->service_stat.start_service_time = time;
 }
 
 void
-set_client_finish_stat (client_t *client, int time)
+client_set_finish_time (client_t *client, int time)
 {
   client->service_stat.finish_time = time;
 }
 
 void
-set_client_total_service_stat (client_t *client, int time)
+client_set_total_service_time (client_t *client, int time)
 {
   client->service_stat.total_time = time;
 }
@@ -122,6 +122,6 @@ log_client_t (const client_t *client)
 void
 client_finalize (client_t *client, int time)
 {
-  set_client_finish_stat (client, time);
-  set_client_total_service_stat (client, time - client->service_stat.arrival_time);
+  client_set_finish_time (client, time);
+  client_set_total_service_time (client, time - client->service_stat.arrival_time);
 }

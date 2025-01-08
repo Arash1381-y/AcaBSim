@@ -60,7 +60,7 @@ int queue_pop (queue_t *queue);
 /**
  * Frees all the ressources associated to the queue
  */
-void queue_free (queue_t *queue);
+void queue_free (queue_t *queue, void (*free_func) (void *));
 
 /**
  * Resizes the capacity of the queue
@@ -68,9 +68,24 @@ void queue_free (queue_t *queue);
  */
 int queue_resize (queue_t *queue, unsigned capacity);
 
+/**
+ *  Return a new queue iterator for a given queue
+ */
 queue_iterator_t *queue_iterator_create (queue_t *queue);
+
+/**
+ * Check if iterator reached the end of the queue
+ */
 int queue_iterator_has_next (queue_iterator_t *iterator);
+
+/**
+ * Push iterator one step forward
+ */
 const void *queue_iterator_next (queue_iterator_t *iterator);
+
+/**
+ * free iterator
+ */
 void queue_iterator_destroy (queue_iterator_t *iterator);
 
 #endif //_QUEUE_H_

@@ -101,10 +101,24 @@ queue_pop (queue_t *queue)
 }
 
 void
-queue_free (queue_t *queue)
+queue_free (queue_t *queue, void (*free_func)(void*))
 {
-  free (queue->items);
-  free (queue);
+
+  if (!queue)
+    return;
+
+  // Free each element using the provided function pointer
+  if (free_func) {
+    for (unsigned int i = 0; i < queue->size; i++) {
+      if (queue->items[i]) {
+        free_func((void *)queue->items[i]);
+      }
+    }
+  }
+
+  // Free the array of items and the queue structure itself
+  free(queue->items);
+  free(queue);
 }
 
 int

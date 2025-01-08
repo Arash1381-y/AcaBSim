@@ -121,7 +121,7 @@ assign_client_to_robotic_server (robotic_server_t *server, client_t *client)
 }
 
 int
-assign_client_to_server (server_t *server, client_t *client)
+server_assign_client (server_t *server, client_t *client)
 {
   assert (server != NULL);
   assert (client != NULL);
@@ -147,7 +147,7 @@ assign_client_to_server (server_t *server, client_t *client)
   return 0;
 }
 
-int
+static int
 get_service_time (const base_server_t *server, client_t *client)
 {
   assert (client);
@@ -214,7 +214,7 @@ log_server_stat (const base_server_t *server)
 }
 
 void
-serve (base_server_t *server)
+server_tick (base_server_t *server)
 {
   // serve current task for standard servers
   if (server->current_client != NULL)
@@ -252,7 +252,7 @@ get_robotic_server_load (robotic_server_t *server, DISABILITY_TYPE client_disabi
 }
 
 int
-get_server_load (const server_t *server, DISABILITY_TYPE client_disability_type)
+server_get_load (const server_t *server, DISABILITY_TYPE client_disability_type)
 {
   base_server_t *server_base = (base_server_t *)server;
   if (server_base->type == STANDARD_SERVER)
@@ -288,8 +288,8 @@ robotic_server_set_next_client (robotic_server_t *server, int current_time)
     server->base.current_client = next;
 
     // update client stat
-    set_client_start_service_stat (next, current_time);
-    set_client_wait_stat (next, current_time - next->service_stat.arrival_time);
+    client_set_start_service_time (next, current_time);
+    client_set_wait_time (next, current_time - next->service_stat.arrival_time);
     erf_log (INFO, "SERVICE %d start serving CLIENT %d", server->base.id, next->id);
   }
   else if (queue_size (server->normal_client_queue))
@@ -306,8 +306,8 @@ robotic_server_set_next_client (robotic_server_t *server, int current_time)
     server->base.current_client = next;
 
     // update client stat
-    set_client_start_service_stat (next, current_time);
-    set_client_wait_stat (next, current_time - next->service_stat.arrival_time);
+    client_set_start_service_time (next, current_time);
+    client_set_wait_time (next, current_time - next->service_stat.arrival_time);
     erf_log (INFO, "SERVICE %d start serving CLIENT %d", server->base.id, next->id);
   }
   else
@@ -336,8 +336,8 @@ standard_server_set_next_client (standard_server_t *server, int current_time)
     server->base.current_client = next;
 
     // update client stat
-    set_client_start_service_stat (next, current_time);
-    set_client_wait_stat (next, current_time - next->service_stat.arrival_time);
+    client_set_start_service_time (next, current_time);
+    client_set_wait_time (next, current_time - next->service_stat.arrival_time);
     erf_log (INFO, "SERVICE %d start serving CLIENT %d", server->base.id, next->id);
   }
   else
@@ -453,4 +453,39 @@ server_retry (server_t *server)
 
   server_base->to_serve = get_service_time (server_base, client);
   erf_log (INFO, "SERVER ID %d REDO SERVING CLIENT ID %d", server_base->id, client->id);
+}
+
+static void
+server_base_free (base_server_t *server)
+{
+  queue_free (server->finished_clients_queue, free);
+  if (server->current_client)
+  {
+    free (server->current_client);
+  }
+}
+
+void
+server_free (server_t *server)
+{
+  base_server_t *server_base = (base_server_t *)server;
+  server_base_free (server_base);
+  if (server_base->type == STANDARD_SERVER)
+  {
+    standard_server_t *standard = (standard_server_t *)server;
+    queue_free (standard->client_queue, free);
+  }
+  else if (server_base->type == ROBOTIC_SERVER)
+  {
+    robotic_server_t *robotic = (robotic_server_t *)server;
+    queue_free (robotic->normal_client_queue, free);
+    queue_free (robotic->disable_client_queue, free);
+  }
+  else
+  {
+    // TODO: correct error handling
+    exit (EXIT_FAILURE);
+  }
+
+  free (server);
 }

@@ -12,27 +12,10 @@ typedef struct
   prob_t p1_dest_prob;
 } sim_param_t;
 
-typedef struct
-{
-  int total_clients;
-  int mean_queue_size;
-  int mean_wait_time;
-  int mean_serve_time;
-
-  int nd_mean_wait_time;
-  int nd_mean_serve_time;
-
-  int t1_mean_wait_time;
-  int t1_mean_serve_time;
-
-  int t2_mean_wait_time;
-  int t2_mean_serve_time;
-
-  int t3_mean_wait_time;
-  int t3_mean_serve_time;
-
-} sim_stat_t;
-
 int exponential_sample ();
 
 int unifrom_sample (int a, int b);
+
+void print_simulation_params (const sim_param_t *params);
+
+void initialize_parameters (sim_param_t *params, int argc, char *argv[]);
