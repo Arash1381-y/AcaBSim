@@ -1,3 +1,7 @@
+# Introduction
+
+This repository contains code related to computer simulation project. It simulates a queue system using different strategies to enhance the service ratio in an academic environment. 
+
 # Code Structure
 
 The simulation model consists of 2 main modules:
